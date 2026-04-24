@@ -7,4 +7,4 @@ that is useful in notebooks, offline review, model-building, and replay.
 """
 
 __all__ = ["__version__"]
-__version__ = "0.2.0"
+__version__ = "0.2.1"
