@@ -1,0 +1,166 @@
+name: CI and Publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  release:
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      (
+        contains(github.event.head_commit.message, '#major') ||
+        contains(github.event.head_commit.message, '#minor') ||
+        contains(github.event.head_commit.message, '#patch')
+      )
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Bump version, commit, and tag
+        id: release_version
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$COMMIT_MESSAGE" == *"#major"* ]]; then
+            bump="major"
+          elif [[ "$COMMIT_MESSAGE" == *"#minor"* ]]; then
+            bump="minor"
+          else
+            bump="patch"
+          fi
+
+          export BUMP_KIND="$bump"
+          new_version="$(python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          bump = os.environ["BUMP_KIND"]
+          pyproject_path = Path("pyproject.toml")
+          init_path = Path("src/rheed_tools/__init__.py")
+
+          pyproject = pyproject_path.read_text(encoding="utf-8")
+          m = re.search(r'(?m)^version = "(\d+)\.(\d+)\.(\d+)"$', pyproject)
+          if not m:
+              raise SystemExit("Unable to find semantic version in pyproject.toml")
+
+          major, minor, patch = map(int, m.groups())
+          if bump == "major":
+              major += 1
+              minor = 0
+              patch = 0
+          elif bump == "minor":
+              minor += 1
+              patch = 0
+          else:
+              patch += 1
+
+          new_version = f"{major}.{minor}.{patch}"
+          old_version = f'{m.group(1)}.{m.group(2)}.{m.group(3)}'
+
+          pyproject = pyproject.replace(
+              f'version = "{old_version}"',
+              f'version = "{new_version}"',
+              1,
+          )
+          pyproject_path.write_text(pyproject, encoding="utf-8")
+
+          init_text = init_path.read_text(encoding="utf-8")
+          init_new = re.sub(
+              r'(?m)^__version__ = ".*"$',
+              f'__version__ = "{new_version}"',
+              init_text,
+              count=1,
+          )
+          if init_text == init_new:
+              raise SystemExit("Unable to update src/rheed_tools/__init__.py version")
+          init_path.write_text(init_new, encoding="utf-8")
+
+          print(new_version)
+          PY
+          )"
+
+          new_tag="v${new_version}"
+          echo "new_version=${new_version}" >> "$GITHUB_OUTPUT"
+          echo "new_tag=${new_tag}" >> "$GITHUB_OUTPUT"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add pyproject.toml src/rheed_tools/__init__.py
+          if git diff --cached --quiet; then
+            echo "Version files unchanged; skipping commit."
+          else
+            git commit -m "chore(release): ${new_tag} [skip ci]"
+            git push origin HEAD:main
+          fi
+
+          if git rev-parse "$new_tag" >/dev/null 2>&1; then
+            echo "Tag ${new_tag} already exists."
+          else
+            git tag "$new_tag"
+            git push origin "$new_tag"
+          fi
+
+      - name: Build package from release commit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true
