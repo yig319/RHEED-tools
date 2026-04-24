@@ -5,6 +5,7 @@
 import numpy as np
 
 
+
 def sanitize_roi(
     shape: tuple[int, int],
     roi: tuple[int, int, int, int] | None,
