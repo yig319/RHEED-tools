@@ -20,6 +20,7 @@ classifiers = [
 ]
 dependencies = [
   "numpy>=1.24",
+  "sci-viz-utils>=0.1.0",
 ]
 
 [project.optional-dependencies]

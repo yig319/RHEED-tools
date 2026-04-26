@@ -2,3 +2,4 @@
 matplotlib
 tqdm
 numpy
+sci-viz-utils>=0.1.0

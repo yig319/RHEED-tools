@@ -36,6 +36,10 @@ from rheed_tools.io import load_movie_frames
 movie = load_movie_frames("example.imm", every_n=120, fps=30.1)
 ```
 
+See [`USAGE.md`](USAGE.md) for a practical guide to loading frames, analyzing
+traces, visualizing ROIs, and the boundary between RHEED-tools and
+`sci-viz-utils`.
+
 ## Migration Sources
 
 This package consolidates reusable analysis and notebook utilities from:

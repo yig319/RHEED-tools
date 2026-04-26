@@ -1,3 +1,4 @@
+-e ../sci-viz-utils
 -r requirements.txt
 pytest>=8.0
 build>=1.2

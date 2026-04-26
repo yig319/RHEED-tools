@@ -4,14 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-
-def find_repo_root(start: Path | None = None) -> Path:
-    """Return the repository root by walking upward until ``pyproject.toml`` is found."""
-    path = (start or Path.cwd()).resolve()
-    for candidate in [path, *path.parents]:
-        if (candidate / "pyproject.toml").exists():
-            return candidate
-    return path
+from sci_viz_utils.paths import find_repo_root
 
 
 def repo_data_path(*parts: str | Path, start: Path | None = None) -> Path:
