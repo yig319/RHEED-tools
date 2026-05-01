@@ -3,7 +3,7 @@
 """Image-stack utilities for offline RHEED analysis."""
 
 from pathlib import Path
-
+from tqdm import tqdm
 import numpy as np
 
 from rheed_tools.analysis.roi import crop_frame, crop_frames, sanitize_roi
@@ -212,7 +212,7 @@ def crop_movie_to_h5(
     )
     if info.height is None or info.width is None:
         raise ValueError("movie frame size could not be determined for crop_movie_to_h5()")
-
+    print('info:', info.frame_count)
     y0, y1, x0, x1 = sanitize_roi((info.height, info.width), roi, fraction=0.5)
     cropped_shape = (y1 - y0, x1 - x0)
     if cropped_shape[0] <= 0 or cropped_shape[1] <= 0:
@@ -224,7 +224,7 @@ def crop_movie_to_h5(
     frame_indices_written: list[int] = []
     with h5py.File(out_path, "w") as h5:
         ds = None
-        for out_idx, (frame_idx, frame) in enumerate(
+        for out_idx, (frame_idx, frame) in enumerate(tqdm(
             iter_movie_frames(
                 movie_path,
                 every_n=every_n,
@@ -236,8 +236,8 @@ def crop_movie_to_h5(
                 imm_width=imm_width,
                 imm_height=imm_height,
                 imm_dtype=imm_dtype,
-            )
-        ):
+            ), total=info.frame_count, desc="Frames"
+        )):
             cropped = np.asarray(frame[y0:y1, x0:x1])
             if ds is None:
                 ds = h5.create_dataset(

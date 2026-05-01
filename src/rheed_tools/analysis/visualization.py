@@ -3,6 +3,8 @@
 """Notebook-friendly plotting helpers for diffraction-frame inspection."""
 
 import numpy as np
+from matplotlib.patches import Rectangle
+from sci_viz_utils.figures import layout_fig, set_axis_labels
 
 from .roi import crop_frame
 
@@ -29,11 +31,12 @@ def plot_frame_with_crop(
     crop = crop_frame(arr, roi)
     y0, y1, x0, x1 = roi
 
-    fig, axes = plt.subplots(1, 2, figsize=figsize)
+    fig, axes = layout_fig(2, mod=2, figsize=figsize)
+    axes = np.asarray(axes).ravel()
     axes[0].imshow(arr, cmap=cmap)
-    axes[0].set_title("Frame with ROI")
+    set_axis_labels(axes[0], title="Frame with ROI", show_ticks=False)
     axes[0].add_patch(
-        plt.Rectangle(
+        Rectangle(
             (x0, y0),
             x1 - x0,
             y1 - y0,
@@ -47,7 +50,7 @@ def plot_frame_with_crop(
     axes[0].set_axis_off()
 
     axes[1].imshow(crop, cmap=cmap)
-    axes[1].set_title("ROI crop")
+    set_axis_labels(axes[1], title="ROI crop", show_ticks=False)
     axes[1].set_axis_off()
 
     fig.tight_layout()
